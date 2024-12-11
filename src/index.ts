@@ -1,11 +1,14 @@
-import express, { Express, Request, Response } from "express";
-
+import express, { Express } from "express";
+// Routers
 import kvsRouter from './routers/kvs';
 import viewRouter from './routers/view';
-import { socket, view } from "./util/store";
-import statusRouter from "./routers/status";
 import resetRouter from "./routers/reset";
+import statusRouter from "./routers/status";
+import { shardRouter } from "./routers/shard";
+// Util
+import { socket, view } from "./util/store";
 import { calculateHeartbeatSocket, HEARTBEAT_INITIAL_DELAY_MS } from "./util/heartbeat";
+import { initializeShard } from "./util/shard";
 
 const app: Express = express()
 const port = 8090
@@ -16,6 +19,8 @@ app.use(express.json())
 app.use('/kvs', kvsRouter)
 
 app.use('/view', viewRouter)
+
+app.use('/shard', shardRouter)
 
 app.use('/reset', resetRouter)
 
@@ -45,7 +50,7 @@ app.listen(port, host, () => {
       },
     }).catch((_) => {})
   }
-
+  initializeShard()
   setTimeout(() => {
     calculateHeartbeatSocket()
   }, HEARTBEAT_INITIAL_DELAY_MS)

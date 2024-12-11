@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from 'express'
-import { NODE_COUNT, shardIds, shardId, shardMemberMap } from '../util/shard'
-import md5 from 'md5'
+import { shardIds, shardId, shardMemberMap, hashKey } from '../util/shard'
 
-const findTargetShardId = (hash: number) => {
+const getTargetShardId = (req: Request) => {
+  const key = req.params.key!
+
+  const hash = hashKey(key)
+  let targetShardId
+
   let left = 0
   let right = shardIds.length - 1
-  let result
 
   // If hash is greater than the last shard ID, use first shard
   if (hash > shardIds[right]) {
@@ -18,11 +21,11 @@ const findTargetShardId = (hash: number) => {
     if (shardIds[mid] < hash) {
       left = mid + 1
     } else {
-      result = shardIds[mid]
+      targetShardId = shardIds[mid]
       right = mid - 1
     }
   }
-  return result!
+  return targetShardId!
 }
 
 // This middleware only works for KVS operations with a key url param
@@ -31,27 +34,37 @@ export const verifyShardLocation = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const control = req.headers['x-skip-validation'] === 'true'
-  const key = req.params.key!
   const { method, body } = req
+  const origin = req.headers.origin
+  const control = req.headers['x-skip-validation'] === 'true'
 
-  if (!control) {
+  if (origin || control) {
     return next()
   }
-  const hash = parseInt(md5(key), 16) % NODE_COUNT
-  const targetShardId = findTargetShardId(hash)
+
+  let targetShardId;
+  if (req.baseUrl === '/kvs') {
+    targetShardId = getTargetShardId(req)
+  } else {
+    targetShardId = parseInt(req.params.id!)
+    if (!(targetShardId in shardMemberMap)) {
+      res.status(404).send({ error: 'Shard ID not found' })
+      return
+    }
+  }
 
   if (targetShardId === shardId) {
     return next()
   }
 
   try {
+    const path = req.baseUrl + req.path
     const leaderSocket = shardMemberMap[targetShardId][0]
-    const response = await fetch(`${leaderSocket}/kvs/${key}`, {
+    const response = await fetch(`http://${leaderSocket}${path}}`, {
       method,
       body: JSON.stringify(body),
     })
-    const status = response.status;
+    const status = response.status
     const json = await response.json()
     res.status(status).send(json)
   } catch (e) {

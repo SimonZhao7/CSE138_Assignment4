@@ -20,10 +20,16 @@ const setVectorClock = (newVectorClock: IVectorClock) => vectorClock = newVector
 
 const updateVectorClock = (req: Request) => {
   const origin = req.headers.origin
+  const overwrite = req.headers['x-overwrite-metadata'] === 'true'
   const metadata = req.body['causal-metadata'] || {}
 
   if (origin === undefined) {
     vectorClock[socket] += 1
+    return
+  }
+
+  if (overwrite) {
+    setVectorClock(metadata)
     return
   }
 
