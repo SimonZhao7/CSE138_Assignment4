@@ -11,3 +11,7 @@ export interface IResetDataJson {
   store?: IKeyValuePairs,
   'causal-metadata': IVectorClock
 }
+
+export interface IShardMemberMap {
+  [key: number]: string[];
+}

@@ -5,8 +5,11 @@ import { verifyCausalDependency } from '../middleware/verifyCausalDependancy'
 import { vectorClock, updateVectorClock } from '../util/vectorClock'
 import { broadcastChanges } from '../util/broadcastChanges'
 import { store } from '../util/store'
+import { verifyShardLocation } from '../middleware/verifyShardLocation'
 
 const kvsRouter = Router()
+
+kvsRouter.use(verifyShardLocation)
 
 kvsRouter.use(verifyCausalDependency(vectorClock))
 
