@@ -10,10 +10,6 @@ shardRouter.get('/ids', (req, res) => {
   res.send({ 'shard-ids': shardIds })
 })
 
-shardRouter.get('/node-shard-id', (req, res) => {
-  res.send({ 'node-shard-id': shardId })
-})
-
 shardRouter.get('/members/:id', (req, res) => {
   const id = parseInt(req.params.id)
 
@@ -38,6 +34,12 @@ shardRouter.put('/reshard', (req, res) => {
     })
   }
   reshard(shardCount)
+})
+
+
+
+shardRouter.get('/node-shard-id', (req, res) => {
+  res.send({ 'node-shard-id': shardId })
 })
 
 // Shard Operations that may be forwarded to the correct member

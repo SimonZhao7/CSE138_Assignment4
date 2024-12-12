@@ -1,8 +1,8 @@
 import { Request, Response, Router } from 'express'
 // Util
 import { vectorClock } from '../util/vectorClock'
-import { broadcastChanges, broadcastChangesAsync } from '../util/broadcastChanges'
-import { fillStore, view } from '../util/store'
+import { broadcastChanges } from '../util/broadcastChanges'
+import { view } from '../util/store'
 import { headers } from '../util/constants'
 import { calculateHeartbeatSocket } from '../util/heartbeat'
 
@@ -28,12 +28,8 @@ viewRouter.put('/', (req: Request, res: Response) => {
     calculateHeartbeatSocket()
     console.log(view)
     vectorClock[socket] = vectorClock[socket] || 0
-    broadcastChanges(req)
-
-    fillStore(req, socket)
-
+    broadcastChanges(req, view)
     res.status(201).send({ result: 'added' })
-    
   }
 })
 
@@ -56,7 +52,7 @@ viewRouter.delete('/', (req: Request, res: Response) => {
     console.log(view)
     calculateHeartbeatSocket()
     console.log(`Deleted socket: ${sock}`)
-    broadcastChanges(req)
+    broadcastChanges(req, view)
     res.status(201).send({ result: 'deleted' })
   }
 })

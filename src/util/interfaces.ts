@@ -8,8 +8,11 @@ export interface IVectorClock {
 
 export interface IResetDataJson {
   views?: string[],
+  shardIds?: number[],
+  shardMemberMap?: IShardMemberMap,
   store?: IKeyValuePairs,
-  'causal-metadata': IVectorClock
+  'causal-metadata': IVectorClock,
+  shardId?: number,
 }
 
 export interface IShardMemberMap {

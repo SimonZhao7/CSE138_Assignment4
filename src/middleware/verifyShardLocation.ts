@@ -1,18 +1,16 @@
 import { Request, Response, NextFunction } from 'express'
 import { shardIds, shardId, shardMemberMap, hashKey } from '../util/shard'
 
-const getTargetShardId = (req: Request) => {
-  const key = req.params.key!
-
+const getTargetShardId = (key: string) => {
   const hash = hashKey(key)
-  let targetShardId
+  let targetShardId = shardIds[0]
 
   let left = 0
   let right = shardIds.length - 1
 
   // If hash is greater than the last shard ID, use first shard
   if (hash > shardIds[right]) {
-    return shardIds[0]
+    return targetShardId
   }
 
   while (left <= right) {
@@ -25,7 +23,7 @@ const getTargetShardId = (req: Request) => {
       right = mid - 1
     }
   }
-  return targetShardId!
+  return targetShardId
 }
 
 // This middleware only works for KVS operations with a key url param
@@ -34,7 +32,6 @@ export const verifyShardLocation = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const { method, body } = req
   const origin = req.headers.origin
   const control = req.headers['x-skip-validation'] === 'true'
 
@@ -42,9 +39,16 @@ export const verifyShardLocation = async (
     return next()
   }
 
-  let targetShardId;
+  if (isNaN(shardId)) {
+    res.status(403).send({
+      error: 'Endpoint not allowed until node is assigned to a shard',
+    })
+    return
+  }
+
+  let targetShardId
   if (req.baseUrl === '/kvs') {
-    targetShardId = getTargetShardId(req)
+    targetShardId = getTargetShardId(req.params.key)
   } else {
     targetShardId = parseInt(req.params.id!)
     if (!(targetShardId in shardMemberMap)) {
@@ -58,10 +62,16 @@ export const verifyShardLocation = async (
   }
 
   try {
+    const { method, body } = req
     const path = req.baseUrl + req.path
-    const leaderSocket = shardMemberMap[targetShardId][0]
-    const response = await fetch(`http://${leaderSocket}${path}}`, {
+    // Randomly select a member of the target shard
+    const randomIndex = Math.floor(Math.random() * shardMemberMap[targetShardId].length)
+    const memberSocket = shardMemberMap[targetShardId][randomIndex]
+    const response = await fetch(`http://${memberSocket}${path}}`, {
       method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(body),
     })
     const status = response.status

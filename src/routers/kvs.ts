@@ -6,6 +6,7 @@ import { vectorClock, updateVectorClock } from '../util/vectorClock'
 import { broadcastChanges } from '../util/broadcastChanges'
 import { store } from '../util/store'
 import { verifyShardLocation } from '../middleware/verifyShardLocation'
+import { shardId, shardMemberMap } from '../util/shard'
 
 const kvsRouter = Router()
 
@@ -45,14 +46,14 @@ kvsRouter.put('/:key', async (req: Request, res: Response) => {
     console.log(`PUT: ${key} - ${value}`)
     if (key in store) {
       store[key] = value
-      broadcastChanges(req)
+      broadcastChanges(req, shardMemberMap[shardId])
       console.log(`Replacing ${key}`)
       console.log('-----Current store------')
       console.log(store)
       res.status(200).json({ result: 'replaced', 'causal-metadata': vectorClock })
     } else {
       store[key] = value
-      broadcastChanges(req)
+      broadcastChanges(req, shardMemberMap[shardId])
       console.log(`Creating ${key}`)
       console.log('-----Current store------')
       console.log(store)
@@ -73,7 +74,7 @@ kvsRouter.delete('/:key', (req: Request, res: Response) => {
     updateVectorClock(req)
     delete store[key]
     res.status(200).json({ result: 'deleted', 'causal-metadata': vectorClock })
-    broadcastChanges(req)
+    broadcastChanges(req, shardMemberMap[shardId])
   }
 })
 

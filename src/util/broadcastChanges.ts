@@ -1,6 +1,6 @@
 import { Request } from 'express'
 import { vectorClock } from './vectorClock'
-import { socket, viewAddresses, view } from './store'
+import { socket, view } from './store'
 import { headers } from './constants'
 import { IKeyValuePairs } from './interfaces'
 
@@ -65,14 +65,14 @@ const retryUntilComplete = (req: Request, sock: string) => {
   }, COOLDOWN_SECONDS * 1000)*/
 }
 
-const broadcastChanges = (req: Request) => {
+const broadcastChanges = (req: Request, sockets: Iterable<string>) => {
   const origin = req.headers.origin
 
   if (origin !== undefined) {
     return
   }
 
-  for (const sock of view) {
+  for (const sock of sockets) {
     if (sock !== socket) {
       console.log(`BROADCAST TO: '${sock}'`)
       retryUntilComplete(req, sock)

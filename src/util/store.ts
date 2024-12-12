@@ -1,6 +1,7 @@
 import { Request } from 'express'
 import { vectorClock } from './vectorClock'
 import { IKeyValuePairs, IResetDataJson } from './interfaces'
+import { shardId } from './shard'
 
 const socket = process.env.SOCKET_ADDRESS ?? ''
 const viewAddresses = process.env.VIEW ?? ""
@@ -25,6 +26,7 @@ const fillStore = async (req: Request, sock: string) => {
     views: Array.from(view),
     store,
     'causal-metadata': vectorClock,
+    shardId: shardId,
   }
 
   fetch(`http://${sock}/reset`, {
@@ -34,6 +36,7 @@ const fillStore = async (req: Request, sock: string) => {
       origin: socket,
       'Content-Type': 'application/json',
       'X-Skip-Validation': 'true',
+      'x-overwrite': 'true',
     },
   }).then(async (res) => {
     const json = await res.json()

@@ -12,7 +12,7 @@ export const NODE_COUNT = 2 ** 32
 
 export let shardIds: number[] = []
 export let shardMemberMap: IShardMemberMap = {}
-export let shardId: number | undefined
+export let shardId = NaN
 
 export const hashKey = (key: string) => {
   return parseInt(md5(key), 16) % NODE_COUNT
@@ -198,3 +198,7 @@ export const reshard = (shardCount: number) => {
     }
   }
 }
+
+export const setShardIds = (newShardIds: number[]) => shardIds = newShardIds
+export const setShardMemberMap = (newShardMemberMap: IShardMemberMap) => shardMemberMap = newShardMemberMap
+export const setShardId = (newShardId: number) => shardId = newShardId

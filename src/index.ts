@@ -16,15 +16,15 @@ const host = '0.0.0.0'
 
 app.use(express.json())
 
-app.use('/kvs', kvsRouter)
-
 app.use('/view', viewRouter)
+
+app.use('/status', statusRouter)
+
+app.use('/kvs', kvsRouter)
 
 app.use('/shard', shardRouter)
 
 app.use('/reset', resetRouter)
-
-app.use('/status', statusRouter)
 
 app.all('*', (req, res) => {
   res.status(404).send({ error: 'Endpoint does not exist' })
