@@ -1,14 +1,17 @@
-import express, { Express } from "express";
+import express, { Express } from 'express'
 // Routers
-import kvsRouter from './routers/kvs';
-import viewRouter from './routers/view';
-import resetRouter from "./routers/reset";
-import statusRouter from "./routers/status";
-import { shardRouter } from "./routers/shard";
+import kvsRouter from './routers/kvs'
+import viewRouter from './routers/view'
+import resetRouter from './routers/reset'
+import statusRouter from './routers/status'
+import { shardRouter } from './routers/shard'
 // Util
-import { socket, view } from "./util/store";
-import { calculateHeartbeatSocket, HEARTBEAT_INITIAL_DELAY_MS } from "./util/heartbeat";
-import { initializeShard } from "./util/shard";
+import { socket, view } from './util/store'
+import {
+  calculateHeartbeatSocket,
+  HEARTBEAT_INITIAL_DELAY_MS,
+} from './util/heartbeat'
+import { initializeShard } from './util/shard'
 
 const app: Express = express()
 const port = 8090
@@ -50,6 +53,7 @@ app.listen(port, host, () => {
       },
     }).catch((_) => {})
   }
+  console.log('INTIAILZING A NEW SHARD BRUH')
   initializeShard()
   setTimeout(() => {
     calculateHeartbeatSocket()

@@ -1,9 +1,6 @@
 import { Request, Response, Router } from 'express'
 // Util
-import {
-  vectorClock,
-  updateVectorClock,
-} from '../util/vectorClock'
+import { vectorClock, updateVectorClock } from '../util/vectorClock'
 import { setStore, setView, store, view } from '../util/store'
 import { IResetDataJson } from '../util/interfaces'
 import { setShardId, setShardIds, setShardMemberMap } from '../util/shard'
@@ -30,6 +27,7 @@ resetRouter.put('/', (req: Request, res: Response) => {
 
     if (body.shardMemberMap !== undefined) {
       setShardMemberMap(body.shardMemberMap)
+      console.log(`Updated member map: ${body.shardMemberMap}`)
     }
 
     if (

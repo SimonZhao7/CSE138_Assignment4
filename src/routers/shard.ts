@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { reshard, shardId, shardIds, shardMemberMap } from '../util/shard'
-import { fillStore, store, view } from '../util/store'
+import { socket, fillStore, store, view } from '../util/store'
 import { verifyShardLocation } from '../middleware/verifyShardLocation'
 import { vectorClock } from '../util/vectorClock'
 
@@ -21,22 +21,24 @@ shardRouter.get('/members/:id', (req, res) => {
 })
 
 shardRouter.put('/reshard', (req, res) => {
-  const shardCount = parseInt(req.body['shard-count'])
-
   if (req.body['shard-count'] === undefined) {
     res.status(400).send({ error: 'No shard-count provided' })
+    return
   }
+
+  const shardCount = parseInt(req.body['shard-count'])
+  console.log(`Resharding to ${shardCount} shards`)
 
   if (view.size / shardCount < 2) {
     res.status(400).send({
       error:
         'Not enough nodes to provide fault tolerance with requested shard count',
     })
+    return
   }
   reshard(shardCount)
+  res.send({ result: 'resharded' })
 })
-
-
 
 shardRouter.get('/node-shard-id', (req, res) => {
   res.send({ 'node-shard-id': shardId })
@@ -65,5 +67,18 @@ shardRouter.put('/add-member/:id', async (req, res) => {
   // This needs to be broadcasted to all shards
   shardMemberMap[id].push(sock)
   fillStore(req, sock)
+  console.log('Broadcasting to all members that new shard joined')
+  for (const node of view) {
+    fetch(`http://${node}/reset`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        origin: socket,
+      },
+      body: JSON.stringify({
+        shardMemberMap: shardMemberMap,
+      }),
+    })
+  }
   res.send({ result: 'node added to shard' })
 })

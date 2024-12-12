@@ -9,11 +9,6 @@ let vectorClock: IVectorClock = {}
 
 // If replica (not in view) joins, it waits to be assigned a shard
 // Each replica tracks vector clock of all members in the shard
-if (!isNaN(shardId)) {
-  for (const member of shardMemberMap[shardId]) {
-    vectorClock[member] = 0
-  }
-}
 
 // Can have this function create new nodes in the future
 const setVectorClock = (newVectorClock: IVectorClock) =>

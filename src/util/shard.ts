@@ -2,6 +2,7 @@ import md5 from 'md5'
 import { IKeyValuePairs, IShardMemberMap, IVectorClock } from './interfaces'
 import { view } from './store'
 import { v4 as uuidv4 } from 'uuid'
+import { setVectorClock } from './vectorClock'
 
 // What to do if a new member joins the view?
 const SHARD_COUNT = Number(process.env.SHARD_COUNT)
@@ -15,7 +16,7 @@ export let shardMemberMap: IShardMemberMap = {}
 export let shardId = NaN
 
 export const hashKey = (key: string) => {
-  return parseInt(md5(key), 16) % NODE_COUNT
+  return parseInt(md5(key).slice(-8), 16) % NODE_COUNT
 }
 
 const getShardKVs = (shardId: number) => {
@@ -25,6 +26,7 @@ const getShardKVs = (shardId: number) => {
 }
 
 const addShard = async () => {
+  console.log('Adding shard')
   const newShardId = hashKey(uuidv4())
   const insertIndex = shardIds.findIndex((id) => id > newShardId)
 
@@ -38,13 +40,18 @@ const addShard = async () => {
   const { store: nextShardKVs } = await getShardKVs(nextShardId)
 
   const newShardKVs: IKeyValuePairs = {}
+  console.log('Before kvs size: ', Object.keys(nextShardKVs).length)
+  console.log('Before kvs size new: ', Object.keys(newShardKVs).length)
   for (const [key, value] of Object.entries(nextShardKVs)) {
     const hash = hashKey(key)
     // Does this handle inserting new shard to front of shardIds?
     if (hash <= newShardId || hash > shardIds[shardIds.length - 1]) {
       newShardKVs[key] = value
+      delete nextShardKVs[key]
     }
   }
+  console.log('After kvs size new: ', Object.keys(newShardKVs).length)
+  console.log('After kvs size: ', Object.keys(nextShardKVs).length)
 
   // Round robin to move sockets from existing shards to new shard
   let shardPtr = 0
@@ -83,11 +90,26 @@ const addShard = async () => {
       }),
     })
   }
+  
+  // Notify next shard that items have been moved to new shard
+  for (const sock of shardMemberMap[nextShardId]) {
+    await fetch(`http://${sock}/reset/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        origin: socket,
+        'x-overwrite-metadata': 'true',
+      },
+      body: JSON.stringify({
+        store: nextShardKVs,
+      }),
+    })
+  }
 }
 
-const addShards = (shardCount: number) => {
+const addShards = async (shardCount: number) => {
   for (let i = 0; i < shardCount; i++) {
-    addShard()
+    await addShard()
   }
 }
 
@@ -144,14 +166,17 @@ const removeShards = async (shardCount: number) => {
 // Initialize shards consistently across nodes in view
 // Utilize their view index to assign shards
 export const initializeShard = () => {
-  if (SHARD_COUNT < 0) {
+  console.log(`SHARD_COUNT: ${SHARD_COUNT}`)
+  if (SHARD_COUNT < 0 || isNaN(SHARD_COUNT)) {
     return
   }
 
   let nodeId = 0
   for (let i = 0; i < SHARD_COUNT; i++) {
+    console.log(`Add node id: ${nodeId}`)
     shardIds.push(nodeId)
     shardMemberMap[nodeId] = []
+    console.log(`Note count: ${NODE_COUNT}, Shard count: ${SHARD_COUNT}`)
     nodeId += Math.floor(NODE_COUNT / SHARD_COUNT)
   }
 
@@ -159,29 +184,42 @@ export const initializeShard = () => {
   const view = VIEW.split(',')
   view.forEach((sock, idx) => {
     // Assing node to shard based on view index
-    const shardId = shardIds[idx % SHARD_COUNT]
-    shardMemberMap[shardId].push(sock)
+    const targetShardId = shardIds[idx % SHARD_COUNT]
+    if (view[idx] === socket) {
+      shardId = targetShardId
+    }
+    shardMemberMap[targetShardId].push(sock)
   })
+
+  const newVectorClock: IVectorClock = {}
+  for (const sock of shardMemberMap[shardId]) {
+    newVectorClock[sock] = 0
+  }
+  setVectorClock(newVectorClock)
 }
 
-export const reshard = (shardCount: number) => {
+export const reshard = async (shardCount: number) => {
   // Each shard must have at least two members for fault tolerance
   // If shardCount is the same as the current number of shards, do nothing
   if (
     shardCount <= 0 ||
-    shardCount / view.size < 2 ||
+    view.size / shardCount < 2 ||
     shardCount === shardIds.length
   ) {
     return
   }
 
+  console.log('CALCULATING HOW MANY NODES TO ADD/REMOVE')
+
   if (shardCount > shardIds.length) {
-    addShards(shardCount - shardIds.length)
+    console.log(`I AM Adding ${shardCount - shardIds.length} shards`)
+    await addShards(shardCount - shardIds.length)
   } else {
-    removeShards(shardIds.length - shardCount)
+    await removeShards(shardIds.length - shardCount)
   }
 
   // Notify all nodes of the new shard configuration
+  console.log(`Updated Shards: ${shardIds}`)
   for (const sock of view) {
     if (sock !== socket) {
       fetch(`http://${sock}/reset/`, {
@@ -199,6 +237,7 @@ export const reshard = (shardCount: number) => {
   }
 }
 
-export const setShardIds = (newShardIds: number[]) => shardIds = newShardIds
-export const setShardMemberMap = (newShardMemberMap: IShardMemberMap) => shardMemberMap = newShardMemberMap
-export const setShardId = (newShardId: number) => shardId = newShardId
+export const setShardIds = (newShardIds: number[]) => (shardIds = newShardIds)
+export const setShardMemberMap = (newShardMemberMap: IShardMemberMap) =>
+  (shardMemberMap = newShardMemberMap)
+export const setShardId = (newShardId: number) => (shardId = newShardId)

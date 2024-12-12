@@ -33,13 +33,9 @@ kvsRouter.put('/:key', async (req: Request, res: Response) => {
   const value = req.body.value
 
   if (value === undefined) {
-    res
-      .status(400)
-      .json({ error: 'PUT request does not specify a value' })
-
+    res.status(400).json({ error: 'PUT request does not specify a value' })
   } else if (key.length > 50) {
     res.status(400).json({ error: 'Key is too long' })
-
   } else {
     updateVectorClock(req)
 
@@ -50,14 +46,18 @@ kvsRouter.put('/:key', async (req: Request, res: Response) => {
       console.log(`Replacing ${key}`)
       console.log('-----Current store------')
       console.log(store)
-      res.status(200).json({ result: 'replaced', 'causal-metadata': vectorClock })
+      res
+        .status(200)
+        .json({ result: 'replaced', 'causal-metadata': vectorClock })
     } else {
       store[key] = value
       broadcastChanges(req, shardMemberMap[shardId])
       console.log(`Creating ${key}`)
       console.log('-----Current store------')
       console.log(store)
-      res.status(201).json({ result: 'created', 'causal-metadata': vectorClock })
+      res
+        .status(201)
+        .json({ result: 'created', 'causal-metadata': vectorClock })
     }
     //console.log('ABOUT TO BROADCAST', vectorClock)
     //broadcastChanges(req)
@@ -70,7 +70,6 @@ kvsRouter.delete('/:key', (req: Request, res: Response) => {
   if (!(key in store)) {
     res.status(404).json({ error: 'Key does not exist' })
   } else {
-
     updateVectorClock(req)
     delete store[key]
     res.status(200).json({ result: 'deleted', 'causal-metadata': vectorClock })

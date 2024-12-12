@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { shardIds, shardId, shardMemberMap, hashKey } from '../util/shard'
 
+import path from 'path'
 const getTargetShardId = (key: string) => {
   const hash = hashKey(key)
   let targetShardId = shardIds[0]
@@ -23,6 +24,7 @@ const getTargetShardId = (key: string) => {
       right = mid - 1
     }
   }
+  console.log('Target shard ID: ', targetShardId)
   return targetShardId
 }
 
@@ -48,9 +50,12 @@ export const verifyShardLocation = async (
 
   let targetShardId
   if (req.baseUrl === '/kvs') {
-    targetShardId = getTargetShardId(req.params.key)
+    const key = req.path.split('/')[1]
+    console.log(`Key: ${key}`)
+    targetShardId = getTargetShardId(key)
   } else {
-    targetShardId = parseInt(req.params.id!)
+    const id = req.path.split('/')[2]
+    targetShardId = parseInt(id)
     if (!(targetShardId in shardMemberMap)) {
       res.status(404).send({ error: 'Shard ID not found' })
       return
@@ -65,19 +70,26 @@ export const verifyShardLocation = async (
     const { method, body } = req
     const path = req.baseUrl + req.path
     // Randomly select a member of the target shard
-    const randomIndex = Math.floor(Math.random() * shardMemberMap[targetShardId].length)
+    const randomIndex = Math.floor(
+      Math.random() * shardMemberMap[targetShardId].length,
+    )
     const memberSocket = shardMemberMap[targetShardId][randomIndex]
-    const response = await fetch(`http://${memberSocket}${path}}`, {
+    const options: RequestInit = {
       method,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
-    })
+    }
+
+    if (method !== 'GET' && method !== 'HEAD') {
+      options.body = JSON.stringify(body)
+    }
+    const response = await fetch(`http://${memberSocket}${path}`, options)
     const status = response.status
     const json = await response.json()
     res.status(status).send(json)
   } catch (e) {
+    console.log(e)
     // TODO: Handle error
     res.status(500).send({ error: 'Something went wrong' })
   }
